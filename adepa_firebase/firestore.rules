@@ -2,44 +2,62 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ── Posts ──────────────────────────────────────────────────
-    match /posts/{postId} {
-      // Anyone (anonymous) can read posts
-      allow read: if true;
+    function isSignedIn() {
+      return request.auth != null;
+    }
 
-      // Any signed-in user can create a post
-      allow create: if request.auth != null
-        && request.resource.data.keys().hasAll(['text','tag','colorHex','createdAt','votes','commentCount'])
+    function isNotBanned() {
+      return !exists(/databases/$(database)/documents/banned_users/$(request.auth.uid));
+    }
+
+    match /posts/{postId} {
+      allow read: if resource.data.hidden == false || resource.data.hidden == null;
+
+      allow create: if isSignedIn()
+        && isNotBanned()
+        && request.resource.data.keys().hasAll([
+            'text','tag','colorHex','createdAt','votes',
+            'commentCount','reportCount','hidden'])
         && request.resource.data.text is string
         && request.resource.data.text.size() > 0
-        && request.resource.data.text.size() <= 500;
+        && request.resource.data.text.size() <= 500
+        && request.resource.data.hidden == false;
 
-      // Only allow updating votes, commentCount, and reactions (not text/tag)
-      allow update: if request.auth != null
+      allow update: if isSignedIn()
         && request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['votes', 'commentCount', 'reactions']);
+            .hasOnly(['votes','commentCount','reactions','reportCount','hidden','flaggedScore']);
 
       allow delete: if false;
 
-      // ── Comments ─────────────────────────────────────────────
       match /comments/{commentId} {
         allow read: if true;
-
-        allow create: if request.auth != null
-          && request.resource.data.keys().hasAll(['text','colorHex','createdAt'])
+        allow create: if isSignedIn()
+          && isNotBanned()
           && request.resource.data.text is string
           && request.resource.data.text.size() > 0
           && request.resource.data.text.size() <= 300;
-
         allow update, delete: if false;
       }
     }
 
-    // ── Votes ─────────────────────────────────────────────────
     match /votes/{voteId} {
-      // voteId format: {uid}_{postId}
-      allow read: if request.auth != null && voteId.matches(request.auth.uid + '_.*');
-      allow write: if request.auth != null && voteId.matches(request.auth.uid + '_.*');
+      allow read: if isSignedIn() && voteId.matches(request.auth.uid + '_.*');
+      allow write: if isSignedIn() && voteId.matches(request.auth.uid + '_.*');
+    }
+
+    match /reports/{reportId} {
+      allow read: if isSignedIn() && reportId.matches(request.auth.uid + '_.*');
+      allow create: if isSignedIn() && reportId.matches(request.auth.uid + '_.*');
+      allow update, delete: if false;
+    }
+
+    match /banned_users/{uid} {
+      allow read: if isSignedIn() && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    match /moderation_log/{logId} {
+      allow read, write: if false;
     }
   }
 }

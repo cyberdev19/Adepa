@@ -41,6 +41,8 @@ class Post {
   final String colorHex;
   final int votes;
   final int commentCount;
+  final int reportCount;
+  final bool hidden;
   final Map<String, int> reactions;
 
   Post({
@@ -51,6 +53,8 @@ class Post {
     required this.colorHex,
     this.votes = 1,
     this.commentCount = 0,
+    this.reportCount = 0,
+    this.hidden = false,
     Map<String, int>? reactions,
   }) : reactions = reactions ?? {};
 
@@ -66,6 +70,8 @@ class Post {
       colorHex: data['colorHex'] ?? '#006B3F',
       votes: data['votes'] ?? 1,
       commentCount: data['commentCount'] ?? 0,
+      reportCount: data['reportCount'] ?? 0,
+      hidden: data['hidden'] ?? false,
       reactions: Map<String, int>.from(data['reactions'] ?? {}),
     );
   }
@@ -77,6 +83,8 @@ class Post {
     'colorHex': colorHex,
     'votes': votes,
     'commentCount': commentCount,
+    'reportCount': reportCount,
+    'hidden': hidden,
     'reactions': reactions,
   };
 }
